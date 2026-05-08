@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procedural Tulip Garden</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #87CEEB;
+            /* Fallback before Three.js loads */
+            font-family: 'Georgia', serif;
+        }
+
+        #webgl-container,
+        #css-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #webgl-container {
+            z-index: 1;
+        }
+
+        #css-container {
+            z-index: 2;
+            pointer-events: none;
+            /* Initially non-interactive so raycasting works on WebGL */
+        }
+
+        /* Elegant, warm CSS styling for the card */
+        .card-content {
+            width: 300px;
+            height: 400px;
+            background-color: transparent;
+            /* We let the WebGL mesh provide the solid color */
+            background-image: url('data:image/svg+xml;utf8,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100" height="100" filter="url(%23noise)" opacity="0.06"/></svg>');
+            padding: 25px 20px;
+            box-sizing: border-box;
+            color: #3e2723;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.5;
+            font-size: 14px;
+            opacity: 0;
+            /* Fades in during extraction to prevent CSS overlay clipping issues */
+        }
+
+        .card-content p {
+            margin: 0 0 12px 0;
+        }
+
+        .card-content p:last-child {
+            margin-bottom: 0;
+            font-style: italic;
+            color: #d81b60;
+            margin-top: 10px;
+        }
+
+        .card-content strong {
+            color: #c2185b;
+            font-weight: bold;
+        }
+
+        .magic-btn {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background-color: #d81b60;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            font-family: inherit;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            animation: pulse 2s infinite;
+            transition: transform 0.2s, background-color 0.2s;
+            pointer-events: auto;
+        }
+
+        .magic-btn:hover {
+            transform: scale(1.05);
+            background-color: #c2185b;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(216, 27, 96, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(216, 27, 96, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(216, 27, 96, 0);
+            }
+        }
+
+        #hint-text {
+            position: absolute;
+            top: 38%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            font-family: 'Georgia', serif;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+            opacity: 0;
+            z-index: 10;
+            animation: floatText 2s ease-in-out infinite;
+        }
+
+        @keyframes floatText {
+
+            0%,
+            100% {
+                margin-top: 0px;
+            }
+
+            50% {
+                margin-top: -10px;
+            }
+        }
+
+        .music-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: white;
+            cursor: pointer;
+            z-index: 20;
+            backdrop-filter: blur(4px);
+            transition: all 0.3s;
+        }
+
+        .music-toggle:hover {
+            background: rgba(255, 255, 255, 0.4);
+            transform: scale(1.1);
+        }
+
+        /* --- Premium Intro Overlay --- */
+        #intro-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* Elegant light pink background */
+            background: radial-gradient(circle at 50% 40%, #ffeaf1 0%, #f7c3ce 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            color: #5c182e;
+            font-family: 'Inter', sans-serif;
+            transition: opacity 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        /* Subtle ambient glow behind everything */
+        #intro-overlay::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(225, 193, 138, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        #intro-overlay h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            /* Responsive scaling */
+            margin-bottom: 10px;
+            font-weight: 400;
+            letter-spacing: 0.05em;
+            text-align: center;
+            /* Deep elegant rose gold/burgundy text gradient for light background */
+            background: linear-gradient(to right, #7a2841, #a84260, #7a2841);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 4px 15px rgba(122, 40, 65, 0.15);
+            animation: fadeSlideUp 1.2s ease-out forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        #intro-overlay p {
+            font-size: clamp(0.9rem, 2vw, 1.1rem);
+            font-weight: 300;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: #8c5b6b;
+            /* Elegant muted dark pink for contrast */
+            margin-bottom: 30px;
+            /* Reduced to pull image up */
+            text-align: center;
+            animation: fadeSlideUp 1.2s ease-out 0.3s forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        /* Center image container */
+        .intro-image-container {
+            position: relative;
+            margin-bottom: 40px;
+            /* Reduced to bring button up */
+            animation: floatImage 6s ease-in-out infinite, fadeSlideUp 1.2s ease-out 0.6s forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .intro-image {
+            width: 400px;
+            /* Perfectly balanced size */
+            max-width: 85vw;
+            max-height: 45vh;
+            /* Prevents pushing button off screen on small laptops */
+            object-fit: contain;
+            height: auto;
+            display: block;
+            filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.5));
+        }
+
+        @keyframes floatImage {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-12px);
+            }
+        }
+
+        @keyframes fadeSlideUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #enter-btn {
+            padding: 18px 45px;
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            color: #7a2841;
+            border: 1px solid rgba(122, 40, 65, 0.4);
+            border-radius: 4px;
+            /* Crisp, architectural edges */
+            font-size: 1.1rem;
+            font-family: 'Inter', sans-serif;
+            font-weight: 400;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: fadeSlideUp 1.2s ease-out 0.9s forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        #enter-btn:hover {
+            background: #a84260;
+            color: #ffffff;
+            box-shadow: 0 0 30px rgba(168, 66, 96, 0.3);
+            letter-spacing: 0.25em;
+            /* Expanding interaction */
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Intro Overlay -->
+    <div id="intro-overlay">
+        <h1>Happy Mother's Day</h1>
+        <p>A little surprise to make you smile today.</p>
+        <div class="intro-image-container">
+            <img src="Tulips.png" alt="Tulip Bouquet" class="intro-image">
+        </div>
+        <button id="enter-btn">Open the Bouquet</button>
+    </div>
+
+    <div id="webgl-container"></div>
+    <div id="css-container"></div>
+    <div id="hint-text">Tap to Open ✨</div>
+    <audio id="bg-music" loop>
+        <!-- Replace "music.mp3" with your own sweet music file in the same folder -->
+        <source src="music.mp3.mp3" type="audio/mpeg">
+    </audio>
+    <button id="music-toggle" class="music-toggle">🔈</button>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
+
+        // ----------------------------------------------------
+        // PHASE 1: Environment Setup
+        // ----------------------------------------------------
+        const webglContainer = document.getElementById('webgl-container');
+        const cssContainer = document.getElementById('css-container');
+
+        // --- Intro Overlay & Audio Setup ---
+        const bgMusic = document.getElementById('bg-music');
+        const musicToggle = document.getElementById('music-toggle');
+        const introOverlay = document.getElementById('intro-overlay');
+        const enterBtn = document.getElementById('enter-btn');
+        let isMusicPlaying = false;
+
+        enterBtn.addEventListener('click', () => {
+            if (enterBtn.disabled) return;
+
+            // Play music on interaction immediately
+            bgMusic.play().then(() => {
+                musicToggle.innerText = '🔊';
+                isMusicPlaying = true;
+            }).catch(err => console.error("Audio play failed:", err));
+
+            // Disable button and start countdown to sync with music
+            enterBtn.disabled = true;
+            enterBtn.style.pointerEvents = 'none';
+
+            let secondsLeft = 15;
+            enterBtn.innerText = `Starting in ${secondsLeft}...`;
+            enterBtn.style.color = '#7a2841';
+            enterBtn.style.background = 'rgba(255,255,255,0.4)';
+
+            // SPAWN MAGICAL 2D BUTTERFLIES DURING COUNTDOWN
+            for (let i = 0; i < 40; i++) {
+                const b = document.createElement('div');
+                b.innerText = '🦋';
+                b.style.position = 'absolute';
+                b.style.left = Math.random() * 100 + 'vw';
+                b.style.top = '105vh'; // start below screen
+                b.style.fontSize = (Math.random() * 20 + 20) + 'px';
+                b.style.pointerEvents = 'none';
+                b.style.zIndex = '9999';
+                b.style.filter = 'drop-shadow(0 4px 6px rgba(122,40,65,0.3))';
+                introOverlay.appendChild(b);
+
+                gsap.to(b, {
+                    y: -window.innerHeight - 200,
+                    x: `+=${Math.random() * 400 - 200}`,
+                    rotation: Math.random() * 360,
+                    duration: Math.random() * 8 + 7, // 7 to 15 seconds to float up
+                    ease: "power1.inOut",
+                    delay: Math.random() * 10, // stagger start times across the first 10 seconds
+                });
+            }
+
+            const countdownInterval = setInterval(() => {
+                secondsLeft--;
+                if (secondsLeft > 0) {
+                    enterBtn.innerText = `Starting in ${secondsLeft}...`;
+                } else {
+                    clearInterval(countdownInterval);
+                    enterBtn.innerText = "Here we go ✨";
+
+                    // Fade out overlay
+                    introOverlay.style.opacity = '0';
+                    setTimeout(() => {
+                        introOverlay.style.display = 'none';
+                        // Trigger the cinematic intro after overlay fades
+                        playIntroSequence();
+                    }, 1000);
+                }
+            }, 1000);
+        });
+
+        musicToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (isMusicPlaying) {
+                bgMusic.pause();
+                musicToggle.innerText = '🔈';
+                isMusicPlaying = false;
+            } else {
+                bgMusic.play().then(() => {
+                    musicToggle.innerText = '🔊';
+                    isMusicPlaying = true;
+                }).catch(err => console.error("Audio play failed:", err));
+            }
+        });
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+        scene.fog = new THREE.Fog(0x87CEEB, 15, 60);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 1, 40);
+
+        // WebGL Renderer
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Soft shadows requirement
+        webglContainer.appendChild(renderer.domElement);
+
+        // CSS3D Renderer
+        const cssRenderer = new CSS3DRenderer();
+        cssRenderer.setSize(window.innerWidth, window.innerHeight);
+        cssContainer.appendChild(cssRenderer.domElement);
+
+        // OrbitControls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, 2, 0);
+        controls.maxPolarAngle = Math.PI / 2 + 0.05;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xfffff0, 1.2);
+        dirLight.position.set(10, 20, 15);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 50;
+        const d = 25;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        scene.add(dirLight);
+
+        // Ground Plane
+        const groundGeo = new THREE.PlaneGeometry(150, 150);
+        const groundMat = new THREE.MeshStandardMaterial({
+            color: 0x3d6e49,
+            roughness: 0.9,
+            metalness: 0.0
+        });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Window Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            cssRenderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ----------------------------------------------------
+        // PHASE 2: REALISTIC PROCEDURAL TULIPS & INSTANCING
+        // ----------------------------------------------------
+
+        const TULIP_COUNT = 500;
+        const STEM_HEIGHT = 2.0;
+
+        // 1. SCULPT THE REALISTIC BLOOM (Geometry & Gradient)
+        const bloomProfile = new THREE.CubicBezierCurve3(
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0.5, 0.4, 0),
+            new THREE.Vector3(0.6, 0.8, 0),
+            new THREE.Vector3(0.2, 1.4, 0)
+        );
+
+        const bloomGeometry = new THREE.LatheGeometry(bloomProfile.getPoints(20), 60);
+        const positions = bloomGeometry.attributes.position;
+
+        for (let i = 0; i < positions.count; i++) {
+            let x = positions.getX(i);
+            let y = positions.getY(i);
+            let z = positions.getZ(i);
+
+            let angle = Math.atan2(z, x);
+            let radius = Math.sqrt(x * x + z * z);
+
+            // Sculpting 6 distinct petals mathematically
+            let petalEffect = Math.sin(angle * 6) * 0.12 * (y / 1.4);
+            let newRadius = radius + petalEffect;
+
+            positions.setX(i, Math.cos(angle) * newRadius);
+            positions.setZ(i, Math.sin(angle) * newRadius);
+        }
+        bloomGeometry.computeVertexNormals();
+
+        // Apply Vertex Colors to Petals (Using your original colors)
+        const colors = new Float32Array(positions.count * 3);
+        const colorBase = new THREE.Color(0xc2185b); // Deep magenta
+        const colorTip = new THREE.Color(0xf8bbd0);  // Pale pink
+
+        for (let i = 0; i < positions.count; i++) {
+            let y = positions.getY(i);
+            let alpha = Math.min(Math.max(y / 1.4, 0), 1);
+            let lerped = colorBase.clone().lerp(colorTip, alpha);
+            colors[i * 3] = lerped.r;
+            colors[i * 3 + 1] = lerped.g;
+            colors[i * 3 + 2] = lerped.b;
+        }
+        bloomGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        // 2. CREATE THE STEM GEOMETRY
+        const stemCurve = new THREE.QuadraticBezierCurve3(
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0.2, STEM_HEIGHT / 2, 0),
+            new THREE.Vector3(0, STEM_HEIGHT, 0)
+        );
+        const stemGeometry = new THREE.TubeGeometry(stemCurve, 10, 0.04, 8, false);
+
+        // 3. CUSTOM WIND SHADERS & MATERIALS
+        const shaderUniforms = { uTime: { value: 0 } };
+
+        const onBeforeCompileWind = (shader) => {
+            shader.uniforms.uTime = shaderUniforms.uTime;
+            shader.vertexShader = shader.vertexShader.replace(
+                '#include <common>',
+                `#include <common>\n uniform float uTime;`
+            );
+            shader.vertexShader = shader.vertexShader.replace(
+                '#include <begin_vertex>',
+                `
+                #include <begin_vertex>
+                vec4 worldPos = instanceMatrix * vec4(position, 1.0);
+                float heightFactor = max(0.0, worldPos.y * 0.15);
+                float windSway = sin(uTime * 1.5 + worldPos.x * 0.4 + worldPos.z * 0.4) * heightFactor;
+                transformed.x += windSway;
+                transformed.z += windSway * 0.6;
+                `
+            );
+        };
+
+        const bloomMaterial = new THREE.MeshStandardMaterial({
+            vertexColors: true,
+            roughness: 0.6,
+            metalness: 0.1,
+            side: THREE.DoubleSide
+        });
+        bloomMaterial.onBeforeCompile = onBeforeCompileWind;
+
+        const stemMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1b5e20, // Your original green
+            roughness: 0.8
+        });
+        stemMaterial.onBeforeCompile = onBeforeCompileWind;
+
+        // 4. INSTANCED MESH ASSEMBLY & PLACEMENT
+        const instancedBlooms = new THREE.InstancedMesh(bloomGeometry, bloomMaterial, TULIP_COUNT);
+        const instancedStems = new THREE.InstancedMesh(stemGeometry, stemMaterial, TULIP_COUNT);
+
+        instancedBlooms.castShadow = true;
+        instancedStems.castShadow = true;
+        instancedBlooms.receiveShadow = true;
+        instancedStems.receiveShadow = true;
+
+        const dummy = new THREE.Object3D();
+
+        for (let i = 0; i < TULIP_COUNT; i++) {
+            // Keep center empty for envelope using your original spacing logic
+            const radius = 4 + Math.pow(Math.random(), 0.8) * 25;
+            const angle = Math.random() * Math.PI * 2;
+            const posX = Math.cos(angle) * radius;
+            const posZ = Math.sin(angle) * radius;
+            const scale = 0.7 + Math.random() * 0.6;
+            const rotY = Math.random() * Math.PI * 2;
+
+            // Position Stem
+            dummy.position.set(posX, 0, posZ);
+            dummy.rotation.set(0, rotY, 0);
+            dummy.scale.set(scale, scale, scale);
+            dummy.updateMatrix();
+            instancedStems.setMatrixAt(i, dummy.matrix);
+
+            // Position Bloom exactly at the top of the stem
+            dummy.position.set(posX, STEM_HEIGHT * scale, posZ);
+            dummy.updateMatrix();
+            instancedBlooms.setMatrixAt(i, dummy.matrix);
+        }
+
+        instancedBlooms.instanceMatrix.needsUpdate = true;
+        instancedStems.instanceMatrix.needsUpdate = true;
+
+        scene.add(instancedBlooms);
+        scene.add(instancedStems);
+
+        // ----------------------------------------------------
+        // PHASE 3 & 4: Spatial UI, Envelope & DOM Integration
+        // ----------------------------------------------------
+
+        // --- 1. Procedural Kraft Paper Texture Generator ---
+        function createKraftTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const context = canvas.getContext('2d');
+
+            // Base color
+            context.fillStyle = '#C19A6B';
+            context.fillRect(0, 0, 512, 512);
+
+            // Add fibrous noise
+            for (let i = 0; i < 20000; i++) {
+                context.fillStyle = Math.random() > 0.5 ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)';
+                let w = Math.random() * 4;
+                let h = Math.random() * 1.5;
+                context.fillRect(Math.random() * 512, Math.random() * 512, w, h);
+            }
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.colorSpace = THREE.SRGBColorSpace;
+            return texture;
+        }
+
+        const paperTex = createKraftTexture();
+        const envMat = new THREE.MeshStandardMaterial({
+            map: paperTex,
+            roughness: 0.9,
+            side: THREE.DoubleSide
+        });
+
+        const envGroup = new THREE.Group();
+        envGroup.position.set(0, 20, 0); // Start high for drop-in
+        scene.add(envGroup);
+
+        // --- 2. Build Realistic Envelope Geometry (Flaps) ---
+
+        // Back of the envelope (solid plane)
+        const envBack = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 4.6), envMat);
+        envBack.position.set(0, 2.3, -0.05);
+        envBack.castShadow = true;
+        envGroup.add(envBack);
+
+        // Front Bottom Flap
+        const bottomShape = new THREE.Shape();
+        bottomShape.moveTo(-1.8, -2.3);
+        bottomShape.lineTo(1.8, -2.3);
+        bottomShape.lineTo(0, 0.2); // Point overlapping the center
+        const bottomFlap = new THREE.Mesh(new THREE.ShapeGeometry(bottomShape), envMat);
+        bottomFlap.position.set(0, 2.3, 0.05);
+        bottomFlap.receiveShadow = true;
+        envGroup.add(bottomFlap);
+
+        // Front Side Flaps (Overlapping the bottom flap)
+        const leftShape = new THREE.Shape();
+        leftShape.moveTo(-1.8, -2.3);
+        leftShape.lineTo(-1.8, 2.3);
+        leftShape.lineTo(-0.2, 0);
+        const leftFlap = new THREE.Mesh(new THREE.ShapeGeometry(leftShape), envMat);
+        leftFlap.position.set(0, 2.3, 0.06);
+        envGroup.add(leftFlap);
+
+        const rightShape = new THREE.Shape();
+        rightShape.moveTo(1.8, -2.3);
+        rightShape.lineTo(1.8, 2.3);
+        rightShape.lineTo(0.2, 0);
+        const rightFlap = new THREE.Mesh(new THREE.ShapeGeometry(rightShape), envMat);
+        rightFlap.position.set(0, 2.3, 0.06);
+        envGroup.add(rightFlap);
+
+        // Top Flap (Hinged Group)
+        const flapGroup = new THREE.Group();
+        flapGroup.position.set(0, 4.6, -0.05); // Pivot at the top edge of the back plane
+        envGroup.add(flapGroup);
+
+        const topShape = new THREE.Shape();
+        topShape.moveTo(-1.8, 0); // Drawn relative to pivot
+        topShape.lineTo(1.8, 0);
+        topShape.lineTo(0, -2.2);
+        const topFlap = new THREE.Mesh(new THREE.ShapeGeometry(topShape), envMat);
+        topFlap.position.set(0, 0, 0.13); // Shift slightly forward to overlap side flaps
+        topFlap.castShadow = true;
+        flapGroup.add(topFlap);
+
+        // --- 3. The Wax Seal ---
+        const sealMat = new THREE.MeshStandardMaterial({
+            color: 0x8b0000, // Deep crimson red
+            roughness: 0.3,
+            metalness: 0.2
+        });
+        const seal = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.08, 32), sealMat);
+        seal.rotation.x = Math.PI / 2;
+        seal.position.set(0, -2.0, 0.16); // Positioned at the tip of the top flap
+        flapGroup.add(seal);
+
+        // --- 4. The HTML Letter & WebGL Card ---
+        const cardMat = new THREE.MeshStandardMaterial({
+            color: 0xfffaf0,
+            roughness: 0.9,
+            side: THREE.FrontSide
+        });
+        const cardMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 4.0), cardMat);
+        cardMesh.position.set(0, 2.3, 0); // Tucked inside the envelope
+        envGroup.add(cardMesh);
+
+        const cardDiv = document.createElement('div');
+        cardDiv.className = 'card-content';
+        cardDiv.innerHTML = `
+             <p>To my wonderful Mama, and my amazing Aunt who has always been a second mother to me,</p>
+            <p>Today is to celebrate both of you. I want to take this moment to thank you for every sacrifice you've made, every lesson you've taught me, and the unconditional love you've shown me throughout my life.</p>
+            <p>I am the person I am today because I was guided, protected, and loved by two incredibly strong women.</p>
+            <p>Happy Mother's Day to you both. <strong>Salamat sa inyong tanang kahago ug pagpangga. Pinangga kaayo ta mo!</strong></p>
+            <p>Love always, ❤️<br>Vincent</p>
+            <button id="magic-btn" class="magic-btn">Tap for a Midnight ✨</button>
+        
+        
+        `;
+
+        const cssObject = new CSS3DObject(cardDiv);
+        cssObject.scale.set(0.01, 0.01, 0.01);
+        cssObject.position.set(0, 0, 0.02);
+        cardMesh.add(cssObject);
+
+        // Proxy Bounding Box for Raycasting
+        const proxyGeo = new THREE.BoxGeometry(4.0, 5.0, 0.5);
+        const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
+        const proxyBox = new THREE.Mesh(proxyGeo, proxyMat);
+        proxyBox.position.set(0, 2.3, 0);
+        envGroup.add(proxyBox);
+
+        // --- Petal Particle System ---
+        const PETAL_COUNT = 150;
+
+        // Draw a realistic tulip petal shape
+        const petalShape = new THREE.Shape();
+        petalShape.moveTo(0, -0.15); // Base of petal
+        petalShape.bezierCurveTo(0.15, -0.05, 0.15, 0.1, 0, 0.2); // Right curve to tip
+        petalShape.bezierCurveTo(-0.15, 0.1, -0.15, -0.05, 0, -0.15); // Left curve back to base
+
+        // Create geometry with enough segments to curve smoothly
+        const petalGeo = new THREE.ShapeGeometry(petalShape, 4);
+
+        // Curve the flat shape in 3D to give it a cupped petal form
+        const pPos = petalGeo.attributes.position;
+        for (let i = 0; i < pPos.count; i++) {
+            let x = pPos.getX(i);
+            let y = pPos.getY(i);
+            // Bend the sides backwards, and curve the top gently
+            pPos.setZ(i, (x * x) * 2.0 - (y * y) * 0.5);
+        }
+        petalGeo.computeVertexNormals();
+
+        const petalMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            side: THREE.DoubleSide,
+            roughness: 0.8
+        });
+        const instancedPetals = new THREE.InstancedMesh(petalGeo, petalMat, PETAL_COUNT);
+
+        // Use an array of colors like tulips
+        const petalColors = new Float32Array(PETAL_COUNT * 3);
+        const pColor = new THREE.Color();
+        const availablePetalColors = [0xc2185b, 0xf8bbd0, 0xd32f2f, 0xffeb3b, 0xf57c00, 0x7b1fa2];
+
+        const pDummy = new THREE.Object3D();
+        const petals = [];
+        let burstActive = false;
+
+        for (let i = 0; i < PETAL_COUNT; i++) {
+            pColor.setHex(availablePetalColors[Math.floor(Math.random() * availablePetalColors.length)]);
+            pColor.toArray(petalColors, i * 3);
+
+            petals.push({
+                pos: new THREE.Vector3((Math.random() - 0.5) * 1.5, 4.0, (Math.random() - 0.5) * 0.5), // Start near the flap opening
+                vel: new THREE.Vector3((Math.random() - 0.5) * 0.15, Math.random() * 0.2 + 0.15, (Math.random() - 0.5) * 0.15 + 0.1),
+                rot: new THREE.Euler(Math.random() * 6, Math.random() * 6, Math.random() * 6),
+                vRot: new THREE.Euler((Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15, (Math.random() - 0.5) * 0.15),
+                scale: 0
+            });
+
+            pDummy.position.copy(petals[i].pos);
+            pDummy.rotation.copy(petals[i].rot);
+            pDummy.scale.set(0, 0, 0);
+            pDummy.updateMatrix();
+            instancedPetals.setMatrixAt(i, pDummy.matrix);
+        }
+        instancedPetals.instanceColor = new THREE.InstancedBufferAttribute(petalColors, 3);
+        instancedPetals.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        scene.add(instancedPetals);
+
+        // --- Firefly Particle System ---
+        const FIREFLY_COUNT = 300;
+        const fireflyGeo = new THREE.BufferGeometry();
+        const fireflyPos = new Float32Array(FIREFLY_COUNT * 3);
+        for (let i = 0; i < FIREFLY_COUNT; i++) {
+            fireflyPos[i * 3] = 0;
+            fireflyPos[i * 3 + 1] = 0;
+            fireflyPos[i * 3 + 2] = 0;
+        }
+        fireflyGeo.setAttribute('position', new THREE.BufferAttribute(fireflyPos, 3));
+        const fireflyMat = new THREE.PointsMaterial({
+            color: 0xffea00, // Golden magical glow
+            size: 0.2,
+            transparent: true,
+            opacity: 0,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const fireflies = new THREE.Points(fireflyGeo, fireflyMat);
+        scene.add(fireflies);
+
+        const fireflyData = [];
+        let firefliesActive = false;
+        for (let i = 0; i < FIREFLY_COUNT; i++) {
+            fireflyData.push({
+                pos: new THREE.Vector3(0, 3, 0),
+                vel: new THREE.Vector3((Math.random() - 0.5) * 1.2, Math.random() * 0.8 + 0.2, (Math.random() - 0.5) * 1.2),
+                active: false
+            });
+        }
+
+        // --- 1. Lantern System ---
+        const LANTERN_COUNT = 60;
+        const lanternGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 16, 1, true); // Open top/bottom paper lantern
+        const lanternMat = new THREE.MeshStandardMaterial({
+            color: 0xffd700, 
+            emissive: new THREE.Color(0xff8c00), // Deep orange-gold glow
+            emissiveIntensity: 0.0,
+            transparent: true,
+            opacity: 0,
+            side: THREE.DoubleSide
+        });
+        const instancedLanterns = new THREE.InstancedMesh(lanternGeo, lanternMat, LANTERN_COUNT);
+        scene.add(instancedLanterns);
+        
+        const lanternData = [];
+        let lanternsActive = false;
+        
+        for (let i = 0; i < LANTERN_COUNT; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 10 + Math.random() * 40;
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+            const y = -5 - Math.random() * 15; // Start slightly underground
+            
+            const dummyLantern = new THREE.Object3D();
+            dummyLantern.position.set(x, y, z);
+            dummyLantern.rotation.set((Math.random()-0.5)*0.2, Math.random()*Math.PI, (Math.random()-0.5)*0.2);
+            dummyLantern.updateMatrix();
+            instancedLanterns.setMatrixAt(i, dummyLantern.matrix);
+            
+            lanternData.push({
+                x, y, z,
+                speedY: 0.5 + Math.random() * 0.8,
+                swaySpeed: 0.5 + Math.random() * 1.5,
+                swayOffset: Math.random() * Math.PI * 2
+            });
+        }
+
+        // --- 2. Starfield & Heart Constellation ---
+        const starGeo = new THREE.BufferGeometry();
+        const starCount = 1500;
+        const starPositions = new Float32Array(starCount * 3);
+        for(let i=0; i<starCount; i++) {
+            const r = 60 + Math.random() * 40;
+            const theta = 2 * Math.PI * Math.random();
+            const phi = Math.acos(2 * Math.random() - 1);
+            starPositions[i*3] = r * Math.sin(phi) * Math.cos(theta);
+            starPositions[i*3+1] = Math.abs(r * Math.sin(phi) * Math.sin(theta)) + 10; 
+            starPositions[i*3+2] = r * Math.cos(phi);
+        }
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.2, transparent: true, opacity: 0 });
+        const starField = new THREE.Points(starGeo, starMat);
+        scene.add(starField);
+
+        // Heart Constellation
+        const heartPoints = [];
+        for ( let i = 0; i <= 60; i ++ ) {
+            const t = i / 60 * Math.PI * 2;
+            const x = 16 * Math.pow(Math.sin(t), 3);
+            const y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+            heartPoints.push(new THREE.Vector3(x * 1.2, y * 1.2 + 40, -80)); // High up and far back
+        }
+        const heartGeo = new THREE.BufferGeometry().setFromPoints(heartPoints);
+        const heartMat = new THREE.LineBasicMaterial({ color: 0xffe6f2, transparent: true, opacity: 0 });
+        const heartConstellation = new THREE.Line(heartGeo, heartMat);
+        scene.add(heartConstellation);
+
+        // Shooting Star
+        const shootingStarGeo = new THREE.CylinderGeometry(0.15, 0.15, 25, 8);
+        shootingStarGeo.rotateX(Math.PI/2);
+        const shootingStarMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, 
+            emissive: new THREE.Color(0xaaccff),
+            emissiveIntensity: 4.0,
+            transparent: true, 
+            opacity: 0 
+        });
+        const shootingStar = new THREE.Mesh(shootingStarGeo, shootingStarMat);
+        scene.add(shootingStar);
+        let shootingStarActive = false;
+        let shootingStarTimer = 0;
+
+        // --- Photo Slideshow System (Fixed for Local Files) ---
+        const slideshowGroup = new THREE.Group();
+        scene.add(slideshowGroup);
+
+        let currentPhotoIndex = 0;
+        let slideshowActive = false;
+
+        const imagePaths = [
+            'image copy 15.png', 'image.png', 'image copy.png', 'image copy 2.png', 'image copy 3.png',
+            'image copy 4.png', 'image copy 5.png', 'image copy 6.png', 'image copy 7.png',
+            'image copy 8.png', 'image copy 9.png', 'image copy 10.png', 'image copy 11.png',
+            'image copy 12.png', 'image copy 13.png', 'image copy 14.png', 'image copy 15.png'
+        ];
+
+        // Create the CSS container for HTML images
+        const slideContainer = document.createElement('div');
+        slideContainer.style.width = '1000px';
+        slideContainer.style.height = '800px';
+        slideContainer.style.position = 'relative';
+        slideContainer.style.display = 'flex';
+        slideContainer.style.justifyContent = 'center';
+        slideContainer.style.alignItems = 'center';
+
+        const slideImages = [];
+        imagePaths.forEach((path) => {
+            const img = document.createElement('img');
+            img.src = path;
+            img.style.position = 'absolute';
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '100%';
+            img.style.objectFit = 'contain';
+            img.style.opacity = '0';
+            img.style.transition = 'opacity 2.5s ease-in-out'; // Smooth crossfade
+            img.style.border = '20px solid white';
+            img.style.boxShadow = '0 0 40px rgba(255, 255, 255, 0.3)';
+            img.style.borderRadius = '12px';
+            img.style.transform = 'translateZ(0)'; // Force hardware acceleration
+            slideContainer.appendChild(img);
+            slideImages.push(img);
+        });
+
+        // Convert the DOM element to a 3D object
+        const cssSlideshow = new CSS3DObject(slideContainer);
+        
+        function updateSlideshowScale() {
+            // Make it larger overall, but adapt slightly for narrower mobile screens
+            const scaleVal = window.innerWidth < 768 ? 0.018 : 0.026;
+            cssSlideshow.scale.set(scaleVal, scaleVal, scaleVal);
+        }
+        updateSlideshowScale();
+        
+        window.addEventListener('resize', () => {
+            if (cssSlideshow) updateSlideshowScale();
+        });
+
+        slideshowGroup.add(cssSlideshow);
+
+        // Position it prominently above the tulips
+        slideshowGroup.position.set(0, 10, 0);
+
+        function cycleSlideshow() {
+            if (!slideshowActive || slideImages.length === 0) return;
+
+            // Fade out the previous image
+            const prevIndex = currentPhotoIndex === 0 ? slideImages.length - 1 : currentPhotoIndex - 1;
+            slideImages[prevIndex].style.opacity = '0';
+
+            // Fade in the current image
+            slideImages[currentPhotoIndex].style.opacity = '1';
+
+            // Schedule next swap
+            currentPhotoIndex = (currentPhotoIndex + 1) % slideImages.length;
+            setTimeout(cycleSlideshow, 6000); // 6 seconds before swapping again
+        }
+
+        // --- 5. Interaction & Enhanced Kinematics ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let envelopeState = 'closed'; // 'closed', 'opening', 'opened', 'closing'
+
+        // Bind the button click
+        const magicBtn = cardDiv.querySelector('#magic-btn');
+        magicBtn.addEventListener('click', () => {
+            if (envelopeState === 'opened') {
+                envelopeState = 'closing';
+                triggerTwilightBloom();
+            }
+        });
+
+        function onPointerDown(event) {
+            if (envelopeState !== 'closed') return;
+
+            let clientX = event.clientX;
+            let clientY = event.clientY;
+
+            if (event.touches && event.touches.length > 0) {
+                clientX = event.touches[0].clientX;
+                clientY = event.touches[0].clientY;
+            }
+
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(proxyBox);
+
+            if (intersects.length > 0) {
+                envelopeState = 'opening';
+
+                // Autoplay music on first interaction
+                if (!isMusicPlaying) {
+                    bgMusic.play().then(() => {
+                        musicToggle.innerText = '🔊';
+                        isMusicPlaying = true;
+                    }).catch(e => console.log("Audio autoplay prevented"));
+                }
+
+                openEnvelope();
+            }
+        }
+
+        window.addEventListener('pointerdown', onPointerDown);
+        window.addEventListener('touchstart', onPointerDown, { passive: false });
+
+        function openEnvelope() {
+            const tl = gsap.timeline();
+
+            // Fade out the hint text
+            gsap.to("#hint-text", { opacity: 0, duration: 0.5 });
+
+            // 1. Zoom in - FIXED: Pulled camera back to z: 10.5 and aimed higher at y: 5.0
+            tl.to(camera.position, {
+                x: 0,
+                y: 5.0,
+                z: 10.5, // Pulled back further so the whole card fits
+                duration: 1.5,
+                ease: "power2.inOut"
+            }, 0);
+
+            tl.to(controls.target, {
+                x: 0,
+                y: 5.0, // Aiming exactly at the center of the extracted card
+                z: 0,
+                duration: 1.5,
+                ease: "power2.inOut"
+            }, 0);
+
+            // ... (keep the rest of the animation exactly the same starting from Step 2)
+
+            // 2. Break the Wax Seal (pop effect)
+            tl.to(seal.scale, {
+                x: 1.5, y: 1.5, z: 0.1, duration: 0.2, ease: "power1.out"
+            }, 1.3);
+            tl.to(seal.scale, {
+                x: 0, y: 0, z: 0, duration: 0.2, ease: "power1.in"
+            }, 1.5);
+
+            // 3. Open Top Flap
+            tl.to(flapGroup.rotation, {
+                x: Math.PI,
+                duration: 1.2,
+                ease: "power1.inOut",
+                onStart: () => { burstActive = true; }
+            }, 1.6);
+
+            // Burst petals
+            tl.to(petals, {
+                scale: 1,
+                duration: 0.8,
+                stagger: 0.005,
+                ease: "back.out(2)"
+            }, 1.6);
+
+            // 4. Extract Card
+            tl.to(cardMesh.position, {
+                y: 5.0, // Pull it high up out of the envelope
+                duration: 1.5, ease: "back.out(1.2)",
+                onComplete: () => {
+                    cssContainer.style.pointerEvents = 'auto';
+                    envelopeState = 'opened';
+                }
+            }, 2.4);
+
+            // 5. Fade in text smoothly
+            tl.to(cardDiv, {
+                opacity: 1, duration: 0.8, ease: "none"
+            }, 2.6);
+        }
+
+        function triggerTwilightBloom() {
+            const tl = gsap.timeline();
+
+            // 1. Fade out the card text/button
+            tl.to(cardDiv, { opacity: 0, duration: 0.5, onComplete: () => { cssContainer.style.pointerEvents = 'none'; } }, 0);
+
+            // 2. Slide card back in
+            tl.to(cardMesh.position, { y: 2.3, duration: 1.0, ease: "power2.in" }, 0.2);
+
+            // 3. Close the flap
+            tl.to(flapGroup.rotation, { x: 0.12, duration: 1.0, ease: "power2.inOut" }, 0.8);
+
+            // 4. Transform Environment (Twilight)
+            const targetBg = new THREE.Color(0x0f172a); // dark twilight
+            const targetFog = new THREE.Color(0x0f172a);
+
+            tl.to(scene.background, {
+                r: targetBg.r, g: targetBg.g, b: targetBg.b, duration: 4.0, ease: "power1.inOut"
+            }, 1.5);
+            tl.to(scene.fog.color, {
+                r: targetFog.r, g: targetFog.g, b: targetFog.b, duration: 4.0, ease: "power1.inOut"
+            }, 1.5);
+            tl.to(ambientLight, { intensity: 0.15, duration: 3.0 }, 1.5);
+            tl.to(dirLight, { intensity: 0.05, duration: 3.0 }, 1.5);
+
+            // 5. Shrink and dissolve envelope
+            tl.to(envGroup.scale, { x: 0, y: 0, z: 0, duration: 1.5, ease: "back.in(1.5)" }, 1.5);
+
+            // 6. Spawn Fireflies
+            tl.to(fireflyMat, { opacity: 1, duration: 0.5, onStart: () => { firefliesActive = true; } }, 2.5);
+
+            // 7. Pull camera back and orbit
+            tl.to(camera.position, {
+                x: 0, y: 15, z: 30, duration: 5.0, ease: "power2.inOut", onComplete: () => {
+                    controls.autoRotate = true;
+                    controls.autoRotateSpeed = 1.0;
+                }
+            }, 2.5);
+            tl.to(controls.target, { x: 0, y: 2, z: 0, duration: 5.0, ease: "power2.inOut" }, 2.5);
+
+            // 8. Transform Ground into Midnight Reflecting Pool
+            const targetGroundColor = new THREE.Color(0x050510);
+            tl.to(groundMat.color, { r: targetGroundColor.r, g: targetGroundColor.g, b: targetGroundColor.b, duration: 4.0, ease: "power1.inOut" }, 1.5);
+            tl.to(groundMat, { roughness: 0.1, metalness: 0.85, duration: 4.0, ease: "power1.inOut" }, 1.5);
+
+            // 9. Fade in Lanterns, Stars, and Heart Constellation
+            tl.to(lanternMat, { opacity: 0.85, emissiveIntensity: 1.5, duration: 3.0, onStart: () => { lanternsActive = true; } }, 2.5);
+            tl.to(starMat, { opacity: 0.8, duration: 3.0 }, 2.5);
+            tl.to(heartMat, { opacity: 1.0, duration: 4.0 }, 6.5); // Fades in late
+            tl.to({}, { duration: 0.1, onComplete: () => { shootingStarActive = true; } }, 4.5);
+
+            // 10. Start the photo slideshow
+            tl.to({}, {
+                duration: 5.0, onComplete: () => {
+                    slideshowActive = true;
+                    cycleSlideshow();
+                }
+            }, 2.5);
+        }
+
+        // --- 6. Cinematic Intro Sequence ---
+        function playIntroSequence() {
+            const introTl = gsap.timeline({ delay: 0.5 });
+
+            // Camera swoops in and up
+            introTl.to(camera.position, {
+                x: 0, y: 8, z: 16,
+                duration: 3.5,
+                ease: "power3.inOut",
+                onUpdate: () => camera.lookAt(0, 3, 0)
+            }, 0);
+
+            // Envelope gently drops down
+            introTl.to(envGroup.position, {
+                y: 0,
+                duration: 2.5,
+                ease: "bounce.out"
+            }, 1.5);
+
+            // Hint text fades in
+            introTl.to("#hint-text", {
+                opacity: 1,
+                duration: 1.5,
+                ease: "none"
+            }, 3.0);
+        }
+        // playIntroSequence() is now triggered by the Enter button
+
+        // --- 7. Butterflies ---
+        const BUTTERFLY_COUNT = 40;
+        const butterflyGeo = new THREE.PlaneGeometry(0.3, 0.3, 2, 1);
+        butterflyGeo.rotateX(Math.PI / 2); // Put on XZ plane
+
+        const butterflyMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            side: THREE.DoubleSide,
+            roughness: 0.5
+        });
+
+        butterflyMat.onBeforeCompile = (shader) => {
+            shader.uniforms.uTime = shaderUniforms.uTime;
+            shader.vertexShader = shader.vertexShader.replace(
+                '#include <common>',
+                `#include <common>\n uniform float uTime;`
+            );
+            shader.vertexShader = shader.vertexShader.replace(
+                '#include <begin_vertex>',
+                `
+                #include <begin_vertex>
+                float flapSpeed = 25.0;
+                float flap = sin(uTime * flapSpeed + instanceMatrix[3][0] * 5.0) * abs(position.x) * 1.5;
+                transformed.y += flap;
+                `
+            );
+        };
+
+        const instancedButterflies = new THREE.InstancedMesh(butterflyGeo, butterflyMat, BUTTERFLY_COUNT);
+        instancedButterflies.castShadow = true;
+        scene.add(instancedButterflies);
+
+        const butterflyData = [];
+        const butterflyColors = [0xffebee, 0xffd54f, 0x81d4fa, 0xffab91, 0xce93d8]; // Pink, Yellow, Light Blue, Peach, Purple
+        const butterflyColorArray = new Float32Array(BUTTERFLY_COUNT * 3);
+        const tempBColor = new THREE.Color();
+
+        for (let i = 0; i < BUTTERFLY_COUNT; i++) {
+            butterflyData.push({
+                cx: (Math.random() - 0.5) * 30, // Center X
+                cy: 2.0 + Math.random() * 3.0, // Center Y
+                cz: (Math.random() - 0.5) * 30, // Center Z
+                rx: 2.0 + Math.random() * 4.0, // Radius X
+                ry: 0.5 + Math.random() * 1.5, // Radius Y
+                rz: 2.0 + Math.random() * 4.0, // Radius Z
+                speed: 0.5 + Math.random() * 1.0,
+                phase: Math.random() * Math.PI * 2,
+                lastX: 0,
+                lastY: 0,
+                lastZ: 0
+            });
+            tempBColor.setHex(butterflyColors[Math.floor(Math.random() * butterflyColors.length)]);
+            butterflyColorArray[i * 3] = tempBColor.r;
+            butterflyColorArray[i * 3 + 1] = tempBColor.g;
+            butterflyColorArray[i * 3 + 2] = tempBColor.b;
+        }
+        instancedButterflies.instanceColor = new THREE.InstancedBufferAttribute(butterflyColorArray, 3);
+
+        // ----------------------------------------------------
+        // Animation Loop
+        // ----------------------------------------------------
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Update wind shader uniform globally for both stems and blooms
+            shaderUniforms.uTime.value = clock.getElapsedTime();
+
+            // Animate petals if burst is active
+            if (burstActive) {
+                let needsUpdate = false;
+                for (let i = 0; i < PETAL_COUNT; i++) {
+                    const p = petals[i];
+                    if (p.scale > 0) {
+                        p.pos.add(p.vel);
+                        p.vel.y -= 0.005; // Gravity
+                        p.vel.x += (Math.random() - 0.5) * 0.01; // Wind noise
+                        p.vel.z += (Math.random() - 0.5) * 0.01; // Wind noise
+
+                        p.rot.x += p.vRot.x;
+                        p.rot.y += p.vRot.y;
+                        p.rot.z += p.vRot.z;
+
+                        // Stop below ground
+                        if (p.pos.y < 0.1) {
+                            p.pos.y = 0.1;
+                            p.vel.set(0, 0, 0);
+                            p.vRot.set(0, 0, 0);
+                        }
+
+                        pDummy.position.copy(p.pos);
+                        pDummy.rotation.copy(p.rot);
+                        pDummy.scale.set(p.scale, p.scale, p.scale);
+                        pDummy.updateMatrix();
+                        instancedPetals.setMatrixAt(i, pDummy.matrix);
+                        needsUpdate = true;
+                    }
+                }
+                if (needsUpdate) {
+                    instancedPetals.instanceMatrix.needsUpdate = true;
+                }
+            }
+
+            // Animate fireflies if twilight bloom is active
+            if (firefliesActive) {
+                const positions = fireflies.geometry.attributes.position.array;
+                for (let i = 0; i < FIREFLY_COUNT; i++) {
+                    const data = fireflyData[i];
+                    if (!data.active) {
+                        data.active = true; // They start bursting from center
+                    }
+
+                    data.pos.add(data.vel);
+                    // Add some noise to velocity to make them swarm like bugs
+                    data.vel.y += (Math.random() - 0.5) * 0.015;
+                    data.vel.x += (Math.random() - 0.5) * 0.015;
+                    data.vel.z += (Math.random() - 0.5) * 0.015;
+
+                    // Slow them down over time so they hover
+                    data.vel.multiplyScalar(0.98);
+
+                    // Keep them above ground
+                    if (data.pos.y < 0.2) {
+                        data.pos.y = 0.2;
+                        data.vel.y = Math.abs(data.vel.y) + 0.01;
+                    }
+
+                    positions[i * 3] = data.pos.x;
+                    positions[i * 3 + 1] = data.pos.y;
+                    positions[i * 3 + 2] = data.pos.z;
+                }
+                fireflies.geometry.attributes.position.needsUpdate = true;
+            }
+
+            // Floating slideshow
+            if (slideshowActive) {
+                const time = clock.getElapsedTime();
+                slideshowGroup.lookAt(camera.position);
+                slideshowGroup.position.y = 10 + Math.sin(time * 0.5) * 1.5;
+            }
+
+            // Animate Sky Lanterns
+            if (lanternsActive) {
+                const lTime = clock.getElapsedTime();
+                for (let i = 0; i < LANTERN_COUNT; i++) {
+                    const l = lanternData[i];
+                    l.y += l.speedY * 0.02; // Float up
+                    const swayX = Math.sin(lTime * l.swaySpeed + l.swayOffset) * 0.05;
+                    const swayZ = Math.cos(lTime * l.swaySpeed + l.swayOffset) * 0.05;
+                    l.x += swayX;
+                    l.z += swayZ;
+                    
+                    // Reset if too high
+                    if (l.y > 60) {
+                        l.y = -5;
+                        l.x = Math.cos(Math.random() * Math.PI * 2) * (10 + Math.random() * 40);
+                        l.z = Math.sin(Math.random() * Math.PI * 2) * (10 + Math.random() * 40);
+                    }
+                    
+                    dummy.position.set(l.x, l.y, l.z);
+                    dummy.rotation.set(swayX * 2.0, l.swayOffset, swayZ * 2.0);
+                    dummy.scale.setScalar(1.0);
+                    dummy.updateMatrix();
+                    instancedLanterns.setMatrixAt(i, dummy.matrix);
+                }
+                instancedLanterns.instanceMatrix.needsUpdate = true;
+            }
+
+            // Animate Shooting Star
+            if (shootingStarActive) {
+                shootingStarTimer -= 0.016; // approx 60fps
+                if (shootingStarTimer <= 0) {
+                    // Reset star to a closer, higher position
+                    const startX = (Math.random() - 0.5) * 60;
+                    const startY = 25 + Math.random() * 15;
+                    const startZ = -10 - Math.random() * 20;
+                    
+                    const endX = startX - 50;
+                    const endY = startY - 25;
+                    const endZ = startZ + 25;
+                    
+                    shootingStar.position.set(startX, startY, startZ);
+                    shootingStar.lookAt(endX, endY, endZ); // Orient along trajectory
+                    
+                    // Fire it
+                    shootingStarMat.opacity = 1;
+                    gsap.to(shootingStar.position, {
+                        x: endX,
+                        y: endY,
+                        z: endZ,
+                        duration: 0.7,
+                        ease: "power1.in"
+                    });
+                    gsap.to(shootingStarMat, {
+                        opacity: 0,
+                        duration: 0.7,
+                        ease: "power1.inOut"
+                    });
+                    
+                    shootingStarTimer = 3 + Math.random() * 6; // Fire every 3 to 9 seconds
+                }
+            }
+
+            // Animate Butterflies (they fly around continuously)
+            const bTime = clock.getElapsedTime();
+            for (let i = 0; i < BUTTERFLY_COUNT; i++) {
+                const b = butterflyData[i];
+                const bt = bTime * b.speed + b.phase;
+
+                const x = b.cx + Math.sin(bt) * b.rx + Math.sin(bt * 2.3) * (b.rx * 0.3);
+                const z = b.cz + Math.cos(bt * 1.1) * b.rz + Math.cos(bt * 1.7) * (b.rz * 0.3);
+                const y = b.cy + Math.sin(bt * 1.5) * b.ry + Math.sin(bt * 4.0) * 0.5;
+
+                const dx = x - b.lastX;
+                const dz = z - b.lastZ;
+                const dy = y - b.lastY;
+                const angle = Math.atan2(dx, dz); // Heading
+
+                dummy.position.set(x, y, z);
+                dummy.rotation.set(dy * 2.0, angle, 0);
+                dummy.scale.setScalar(0.8);
+                dummy.updateMatrix();
+                instancedButterflies.setMatrixAt(i, dummy.matrix);
+
+                b.lastX = x; b.lastY = y; b.lastZ = z;
+            }
+            instancedButterflies.instanceMatrix.needsUpdate = true;
+
+            controls.update();
+
+            // Explicitly render both layers
+            renderer.render(scene, camera);
+            cssRenderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+
+</html>
