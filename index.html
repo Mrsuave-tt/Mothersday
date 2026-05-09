@@ -734,7 +734,7 @@
             <p>Today is to celebrate both of you. I want to take this moment to thank you for every sacrifice you've made, every lesson you've taught me, and the unconditional love you've shown me throughout my life.</p>
             <p>I am the person I am today because I was guided, protected, and loved by two incredibly strong women.</p>
             <p>Happy Mother's Day to you both. <strong>Salamat sa inyong tanang kahago ug pagpangga. Pinangga kaayo ta mo!</strong></p>
-            <p>Love always, ❤️<br>Vincent</p>
+            <p>Love always, ❤️<br><strong>----Vincent----</strong></p>
             <button id="magic-btn" class="magic-btn">Tap for a Midnight ✨</button>
         
         
@@ -847,7 +847,7 @@
         const LANTERN_COUNT = 60;
         const lanternGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 16, 1, true); // Open top/bottom paper lantern
         const lanternMat = new THREE.MeshStandardMaterial({
-            color: 0xffd700, 
+            color: 0xffd700,
             emissive: new THREE.Color(0xff8c00), // Deep orange-gold glow
             emissiveIntensity: 0.0,
             transparent: true,
@@ -856,23 +856,23 @@
         });
         const instancedLanterns = new THREE.InstancedMesh(lanternGeo, lanternMat, LANTERN_COUNT);
         scene.add(instancedLanterns);
-        
+
         const lanternData = [];
         let lanternsActive = false;
-        
+
         for (let i = 0; i < LANTERN_COUNT; i++) {
             const angle = Math.random() * Math.PI * 2;
             const radius = 10 + Math.random() * 40;
             const x = Math.cos(angle) * radius;
             const z = Math.sin(angle) * radius;
             const y = -5 - Math.random() * 15; // Start slightly underground
-            
+
             const dummyLantern = new THREE.Object3D();
             dummyLantern.position.set(x, y, z);
-            dummyLantern.rotation.set((Math.random()-0.5)*0.2, Math.random()*Math.PI, (Math.random()-0.5)*0.2);
+            dummyLantern.rotation.set((Math.random() - 0.5) * 0.2, Math.random() * Math.PI, (Math.random() - 0.5) * 0.2);
             dummyLantern.updateMatrix();
             instancedLanterns.setMatrixAt(i, dummyLantern.matrix);
-            
+
             lanternData.push({
                 x, y, z,
                 speedY: 0.5 + Math.random() * 0.8,
@@ -885,13 +885,13 @@
         const starGeo = new THREE.BufferGeometry();
         const starCount = 1500;
         const starPositions = new Float32Array(starCount * 3);
-        for(let i=0; i<starCount; i++) {
+        for (let i = 0; i < starCount; i++) {
             const r = 60 + Math.random() * 40;
             const theta = 2 * Math.PI * Math.random();
             const phi = Math.acos(2 * Math.random() - 1);
-            starPositions[i*3] = r * Math.sin(phi) * Math.cos(theta);
-            starPositions[i*3+1] = Math.abs(r * Math.sin(phi) * Math.sin(theta)) + 10; 
-            starPositions[i*3+2] = r * Math.cos(phi);
+            starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+            starPositions[i * 3 + 1] = Math.abs(r * Math.sin(phi) * Math.sin(theta)) + 10;
+            starPositions[i * 3 + 2] = r * Math.cos(phi);
         }
         starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
         const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.2, transparent: true, opacity: 0 });
@@ -900,10 +900,10 @@
 
         // Heart Constellation
         const heartPoints = [];
-        for ( let i = 0; i <= 60; i ++ ) {
+        for (let i = 0; i <= 60; i++) {
             const t = i / 60 * Math.PI * 2;
             const x = 16 * Math.pow(Math.sin(t), 3);
-            const y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+            const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
             heartPoints.push(new THREE.Vector3(x * 1.2, y * 1.2 + 40, -80)); // High up and far back
         }
         const heartGeo = new THREE.BufferGeometry().setFromPoints(heartPoints);
@@ -913,18 +913,167 @@
 
         // Shooting Star
         const shootingStarGeo = new THREE.CylinderGeometry(0.15, 0.15, 25, 8);
-        shootingStarGeo.rotateX(Math.PI/2);
-        const shootingStarMat = new THREE.MeshStandardMaterial({ 
-            color: 0xffffff, 
+        shootingStarGeo.rotateX(Math.PI / 2);
+        const shootingStarMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
             emissive: new THREE.Color(0xaaccff),
             emissiveIntensity: 4.0,
-            transparent: true, 
-            opacity: 0 
+            transparent: true,
+            opacity: 0
         });
         const shootingStar = new THREE.Mesh(shootingStarGeo, shootingStarMat);
         scene.add(shootingStar);
         let shootingStarActive = false;
         let shootingStarTimer = 0;
+
+        // --- Mega-Finale: Lotus, Giant Lantern, Fireworks, Galaxy Message ---
+
+        // 1. Lotus Flower (A group of glowing petals)
+        const lotusGroup = new THREE.Group();
+        lotusGroup.position.set(0, -2, 0); // Start below water
+        scene.add(lotusGroup);
+
+        const lotusPetalMat = new THREE.MeshStandardMaterial({
+            color: 0xffaacc,
+            emissive: 0xff66bb,
+            emissiveIntensity: 0.8,
+            transparent: true,
+            opacity: 0, // Hidden initially
+            side: THREE.DoubleSide
+        });
+
+        const lPetalShape = new THREE.Shape();
+        lPetalShape.moveTo(0, 0);
+        lPetalShape.bezierCurveTo(0.5, 0.5, 0.5, 1.5, 0, 2.0);
+        lPetalShape.bezierCurveTo(-0.5, 1.5, -0.5, 0.5, 0, 0);
+        const lPetalGeo = new THREE.ShapeGeometry(lPetalShape);
+        const lPos = lPetalGeo.attributes.position;
+        for (let i = 0; i < lPos.count; i++) {
+            lPos.setZ(i, (lPos.getX(i) * lPos.getX(i)) - 0.2);
+        }
+        lPetalGeo.computeVertexNormals();
+
+        const lotusPetals = [];
+        for (let i = 0; i < 12; i++) {
+            const mesh = new THREE.Mesh(lPetalGeo, lotusPetalMat);
+            mesh.scale.set(1.5, 1.5, 1.5);
+            mesh.rotation.y = (i / 12) * Math.PI * 2;
+            mesh.rotation.x = 0.2; // Closed slightly
+            lotusGroup.add(mesh);
+            lotusPetals.push(mesh);
+        }
+
+        // 1.5 Lantern Swarm
+        const swarmGroup = new THREE.Group();
+        swarmGroup.position.set(0, -5, 0); // Start with lantern
+        scene.add(swarmGroup);
+
+        const orbMat = new THREE.MeshStandardMaterial({
+            color: 0xffd700,
+            emissive: 0xffaa00,
+            emissiveIntensity: 1.5,
+            transparent: true,
+            opacity: 0.9
+        });
+
+        // Add random floating orbs with animation data
+        const orbData = [];
+        let swarmActive = false;
+        for (let i = 0; i < 30; i++) {
+            const orbGeo = new THREE.SphereGeometry(0.3 + Math.random() * 0.4, 12, 12);
+            const orb = new THREE.Mesh(orbGeo, orbMat);
+            const basePos = {
+                x: (Math.random() - 0.5) * 10,
+                y: (Math.random() - 0.5) * 10,
+                z: (Math.random() - 0.5) * 10
+            };
+            orb.position.set(basePos.x, basePos.y, basePos.z);
+            swarmGroup.add(orb);
+            orbData.push({
+                mesh: orb,
+                baseX: basePos.x, baseY: basePos.y, baseZ: basePos.z,
+                phaseX: Math.random() * Math.PI * 2,
+                phaseY: Math.random() * Math.PI * 2,
+                phaseZ: Math.random() * Math.PI * 2,
+                speed: 0.4 + Math.random() * 0.6,
+                amplitude: 0.8 + Math.random() * 1.2
+            });
+        }
+
+        // 2. Giant Lantern
+        const giantLanternGeo = new THREE.CylinderGeometry(1.5, 1.5, 4.0, 32, 1, true);
+        const giantLanternMat = new THREE.MeshStandardMaterial({
+            color: 0xffd700,
+            emissive: 0xff8c00,
+            emissiveIntensity: 0,
+            transparent: true,
+            opacity: 0,
+            side: THREE.DoubleSide
+        });
+        const giantLantern = new THREE.Mesh(giantLanternGeo, giantLanternMat);
+        giantLantern.position.set(0, -5, 0); // Start hidden in the water
+        scene.add(giantLantern);
+
+        // 3. Fireworks Particle System
+        const fwCount = 400;
+        const fwGeo = new THREE.BufferGeometry();
+        const fwPositions = new Float32Array(fwCount * 3);
+        const fwTargetPositions = new Float32Array(fwCount * 3); // Heart targets
+        const fwVelocities = [];
+        for (let i = 0; i < fwCount; i++) {
+            fwPositions[i * 3] = 0;
+            fwPositions[i * 3 + 1] = 0;
+            fwPositions[i * 3 + 2] = 0;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos((Math.random() * 2) - 1);
+            const speed = 0.5 + Math.random() * 1.5;
+            fwVelocities.push(new THREE.Vector3(
+                Math.sin(phi) * Math.cos(theta) * speed,
+                Math.sin(phi) * Math.sin(theta) * speed,
+                Math.cos(phi) * speed
+            ));
+
+            // Heart Target Math
+            const t = Math.PI * 2 * (i / fwCount);
+            const hx = 16 * Math.pow(Math.sin(t), 3);
+            const hy = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+            const scale = 0.5;
+            fwTargetPositions[i * 3] = hx * scale;
+            fwTargetPositions[i * 3 + 1] = hy * scale;
+            fwTargetPositions[i * 3 + 2] = (Math.random() - 0.5) * 2;
+        }
+        fwGeo.setAttribute('position', new THREE.BufferAttribute(fwPositions, 3));
+        const fwMat = new THREE.PointsMaterial({
+            color: 0xffaadd,
+            size: 0.8,
+            transparent: true,
+            opacity: 0,
+            blending: THREE.AdditiveBlending
+        });
+        const fireworks = new THREE.Points(fwGeo, fwMat);
+        fireworks.position.set(0, 60, -30); // High up where the lantern will explode
+        scene.add(fireworks);
+        let fireworksActive = false;
+        let heartMorphActive = false;
+
+        // 4. Galaxy Message (Standard HTML Overlay)
+        const galaxyDiv = document.createElement('div');
+        galaxyDiv.innerHTML = "";
+        galaxyDiv.style.position = "fixed";
+        galaxyDiv.style.top = "50%";
+        galaxyDiv.style.left = "50%";
+        galaxyDiv.style.transform = "translate(-50%, -50%)";
+        galaxyDiv.style.color = "#ffffff";
+        galaxyDiv.style.fontFamily = "'Playfair Display', serif";
+        galaxyDiv.style.fontSize = "clamp(30px, 8vw, 120px)";
+        galaxyDiv.style.fontWeight = "bold";
+        galaxyDiv.style.textAlign = "center";
+        galaxyDiv.style.textShadow = "0 0 20px #fff, 0 0 40px #ff00aa, 0 0 80px #aa00ff, 0 0 120px #aa00ff";
+        galaxyDiv.style.opacity = "1";
+        galaxyDiv.style.width = "100%";
+        galaxyDiv.style.pointerEvents = "none";
+        galaxyDiv.style.zIndex = "1000";
+        document.body.appendChild(galaxyDiv);
 
         // --- Photo Slideshow System (Fixed for Local Files) ---
         const slideshowGroup = new THREE.Group();
@@ -934,10 +1083,13 @@
         let slideshowActive = false;
 
         const imagePaths = [
-            'image copy 15.png', 'image.png', 'image copy.png', 'image copy 2.png', 'image copy 3.png',
+            'image copy 15.png', 'image copy 16.png', 'image.png', 'image copy.png', 'image copy 2.png', 'image copy 3.png',
             'image copy 4.png', 'image copy 5.png', 'image copy 6.png', 'image copy 7.png',
             'image copy 8.png', 'image copy 9.png', 'image copy 10.png', 'image copy 11.png',
-            'image copy 12.png', 'image copy 13.png', 'image copy 14.png', 'image copy 15.png'
+            'image copy 12.png', 'image copy 13.png', 'image copy 14.png', 'image copy 15.png', 'image copy 17.png',
+            'image copy 18.png', 'image copy 19.png', 'image copy 20.png', 'image copy 21.png',
+            'image copy 22.png', 'image copy 23.png', 'image copy 24.png', 'image copy 25.png', 'image copy 26.png', 'image copy 27.png',
+            'image copy 28.png', 'image copy 29.png'
         ];
 
         // Create the CSS container for HTML images
@@ -969,14 +1121,14 @@
 
         // Convert the DOM element to a 3D object
         const cssSlideshow = new CSS3DObject(slideContainer);
-        
+
         function updateSlideshowScale() {
             // Make it larger overall, but adapt slightly for narrower mobile screens
             const scaleVal = window.innerWidth < 768 ? 0.018 : 0.026;
             cssSlideshow.scale.set(scaleVal, scaleVal, scaleVal);
         }
         updateSlideshowScale();
-        
+
         window.addEventListener('resize', () => {
             if (cssSlideshow) updateSlideshowScale();
         });
@@ -986,11 +1138,24 @@
         // Position it prominently above the tulips
         slideshowGroup.position.set(0, 10, 0);
 
+        let photosShownCount = 0;
+
         function cycleSlideshow() {
             if (!slideshowActive || slideImages.length === 0) return;
 
-            // Fade out the previous image
             const prevIndex = currentPhotoIndex === 0 ? slideImages.length - 1 : currentPhotoIndex - 1;
+
+            photosShownCount++;
+
+            if (photosShownCount > slideImages.length) {
+                // We've shown all photos. Fade out the last one and trigger finale.
+                slideImages[prevIndex].style.opacity = '0';
+                slideshowActive = false;
+                setTimeout(triggerMegaFinale, 2000);
+                return;
+            }
+
+            // Fade out the previous image
             slideImages[prevIndex].style.opacity = '0';
 
             // Fade in the current image
@@ -998,7 +1163,106 @@
 
             // Schedule next swap
             currentPhotoIndex = (currentPhotoIndex + 1) % slideImages.length;
-            setTimeout(cycleSlideshow, 6000); // 6 seconds before swapping again
+            setTimeout(cycleSlideshow, 3000); // 6 seconds before swapping again
+        }
+
+        function triggerMegaFinale() {
+            const tl = gsap.timeline();
+
+            // Stage 1: The Descent, Lotus Bloom, & Golden Tree
+            tl.to(camera.position, { x: 0, y: 1.5, z: 25, duration: 5.0, ease: "power2.inOut" }, 0);
+            tl.to(controls.target, { x: 0, y: 1.0, z: 0, duration: 5.0, ease: "power2.inOut" }, 0);
+
+            tl.to(lanternMat, { opacity: 0, duration: 4.0 }, 1.0);
+            tl.to(slideshowGroup.position, { y: 100, duration: 5.0 }, 0);
+
+            tl.to(lotusGroup.position, { y: 0, duration: 4.0, ease: "power2.out" }, 3.0);
+            tl.to(lotusPetalMat, { opacity: 0.9, duration: 3.0 }, 3.0);
+            lotusPetals.forEach((p) => {
+                tl.to(p.rotation, { x: 1.2, duration: 4.0, ease: "power2.inOut" }, 4.0);
+            });
+
+            // Lantern Swarm Appears
+            tl.to(swarmGroup.scale, {
+                x: 1, y: 1, z: 1, duration: 5.0, ease: "elastic.out(1, 0.7)",
+                onStart: () => { swarmActive = true; }
+            }, 5.0);
+
+            // Stage 2: Giant Lantern & Swarm Ascent
+            tl.to(giantLanternMat, { opacity: 1, emissiveIntensity: 2.0, duration: 3.0 }, 6.0);
+            tl.to(giantLantern.position, { y: 60, duration: 12.0, ease: "power1.in" }, 8.0);
+            tl.to(swarmGroup.position, { y: 60, duration: 12.0, ease: "power1.in" }, 8.0);
+
+            tl.to(camera.position, { y: 60, z: 25, duration: 10.0, ease: "power1.inOut" }, 9.0);
+            tl.to(controls.target, { y: 60, z: -30, duration: 10.0, ease: "power1.inOut" }, 9.0);
+
+            // Stage 3: Fireworks to Heart Morph (swarm disappears as fireworks explode)
+            tl.to(giantLanternMat, { opacity: 0, duration: 0.2 }, 19.5);
+            tl.to(orbMat, { opacity: 0, duration: 0.5, onComplete: () => { swarmActive = false; } }, 19.0);
+            tl.to(fwMat, { opacity: 1.0, duration: 0.1, onStart: () => { fireworksActive = true; } }, 19.5);
+
+            // Wait 2 seconds for explosion, then freeze physics and start morph
+            tl.to(window, {
+                duration: 2.0, onComplete: () => {
+                    fireworksActive = false; // Freeze physics
+                    heartMorphActive = true;
+                }
+            }, 19.6);
+
+            // Stage 4: Cinematic Typing & Final Zoom
+            const finalText = "Happy Mother's Day!";
+            let typeIdx = 0;
+            const typingDummy = { progress: 0 };
+            tl.to(typingDummy, {
+                progress: 1.0, duration: 3.0, onUpdate: () => {
+                    const charsToShow = Math.floor(typingDummy.progress * finalText.length);
+                    if (charsToShow > typeIdx) {
+                        typeIdx = charsToShow;
+                        galaxyDiv.innerHTML = finalText.substring(0, typeIdx) + "<span style='animation: blink 1s infinite; color: #ff00ff'>|</span>";
+                    }
+                }
+            }, 22.0);
+
+            // Hide the cursor
+            tl.to(window, {
+                duration: 0.1, onComplete: () => {
+                    galaxyDiv.innerHTML = finalText;
+                }
+            }, 25.5);
+
+            // --- Hold for 10 seconds to let the moment breathe ---
+            // Then cinematic curtain-drop exit
+            const curtain = document.createElement('div');
+            curtain.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: linear-gradient(to bottom, #000 0%, #0d0020 100%);
+                opacity: 0; pointer-events: none; z-index: 999;
+            `;
+            document.body.appendChild(curtain);
+
+            // After 10-second hold, fade everything out with a message
+            tl.to(curtain, { opacity: 1, duration: 3.0, ease: "power2.in" }, 36.0);
+            tl.to(fwMat, { opacity: 0, duration: 2.0 }, 36.0);
+            tl.to(galaxyDiv, { opacity: 0, duration: 1.5 }, 37.0);
+
+            // Final thank-you card appears on curtain
+            tl.to(window, {
+                duration: 0.1, onComplete: () => {
+                    const outro = document.createElement('div');
+                    outro.style.cssText = `
+                    position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+                    text-align: center; color: white; z-index: 1001; pointer-events: none;
+                    font-family: 'Playfair Display', serif; opacity: 0;
+                `;
+                    outro.innerHTML = `
+                    <div style="font-size: clamp(14px, 3vw, 22px); letter-spacing: 0.3em; text-transform: uppercase; color: #ffaadd; margin-bottom: 20px;">✨ With All My Love ✨</div>
+                    <div style="font-size: clamp(30px, 8vw, 90px); font-weight: bold; text-shadow: 0 0 30px #ff88cc, 0 0 60px #aa00ff;">Happy Mother's Day</div>
+                    <div style="font-size: clamp(12px, 2vw, 18px); color: #cc88ff; margin-top: 24px; letter-spacing: 0.2em;">— Made with ❤️ for you</div>
+                `;
+                    document.body.appendChild(outro);
+                    gsap.to(outro, { opacity: 1, duration: 2.5, ease: "power2.out" });
+                }
+            }, 38.5);
         }
 
         // --- 5. Interaction & Enhanced Kinematics ---
@@ -1345,6 +1609,35 @@
                 slideshowGroup.position.y = 10 + Math.sin(time * 0.5) * 1.5;
             }
 
+            // Animate Fireworks
+            if (fireworksActive) {
+                const positions = fireworks.geometry.attributes.position.array;
+                for (let i = 0; i < fwCount; i++) {
+                    positions[i * 3] += fwVelocities[i].x;
+                    positions[i * 3 + 1] += fwVelocities[i].y;
+                    positions[i * 3 + 2] += fwVelocities[i].z;
+
+                    fwVelocities[i].y -= 0.02; // Gravity
+                    fwVelocities[i].multiplyScalar(0.96); // Drag
+                }
+                fireworks.geometry.attributes.position.needsUpdate = true;
+            }
+
+            // Morph to Heart
+            if (heartMorphActive) {
+                const positions = fireworks.geometry.attributes.position.array;
+                for (let i = 0; i < fwCount; i++) {
+                    const targetX = fwTargetPositions[i * 3];
+                    const targetY = fwTargetPositions[i * 3 + 1];
+                    const targetZ = fwTargetPositions[i * 3 + 2];
+
+                    positions[i * 3] += (targetX - positions[i * 3]) * 0.05;
+                    positions[i * 3 + 1] += (targetY - positions[i * 3 + 1]) * 0.05;
+                    positions[i * 3 + 2] += (targetZ - positions[i * 3 + 2]) * 0.05;
+                }
+                fireworks.geometry.attributes.position.needsUpdate = true;
+            }
+
             // Animate Sky Lanterns
             if (lanternsActive) {
                 const lTime = clock.getElapsedTime();
@@ -1355,14 +1648,14 @@
                     const swayZ = Math.cos(lTime * l.swaySpeed + l.swayOffset) * 0.05;
                     l.x += swayX;
                     l.z += swayZ;
-                    
+
                     // Reset if too high
                     if (l.y > 60) {
                         l.y = -5;
                         l.x = Math.cos(Math.random() * Math.PI * 2) * (10 + Math.random() * 40);
                         l.z = Math.sin(Math.random() * Math.PI * 2) * (10 + Math.random() * 40);
                     }
-                    
+
                     dummy.position.set(l.x, l.y, l.z);
                     dummy.rotation.set(swayX * 2.0, l.swayOffset, swayZ * 2.0);
                     dummy.scale.setScalar(1.0);
@@ -1370,6 +1663,19 @@
                     instancedLanterns.setMatrixAt(i, dummy.matrix);
                 }
                 instancedLanterns.instanceMatrix.needsUpdate = true;
+            }
+
+            // Animate Swarm Orbs (smooth floating)
+            if (swarmActive) {
+                const sTime = clock.getElapsedTime();
+                orbData.forEach((o) => {
+                    o.mesh.position.x = o.baseX + Math.sin(sTime * o.speed + o.phaseX) * o.amplitude;
+                    o.mesh.position.y = o.baseY + Math.sin(sTime * o.speed * 0.7 + o.phaseY) * o.amplitude;
+                    o.mesh.position.z = o.baseZ + Math.cos(sTime * o.speed * 1.1 + o.phaseZ) * o.amplitude;
+                    // Pulse the scale gently
+                    const pulse = 1.0 + 0.15 * Math.sin(sTime * o.speed * 2 + o.phaseX);
+                    o.mesh.scale.setScalar(pulse);
+                });
             }
 
             // Animate Shooting Star
@@ -1380,14 +1686,14 @@
                     const startX = (Math.random() - 0.5) * 60;
                     const startY = 25 + Math.random() * 15;
                     const startZ = -10 - Math.random() * 20;
-                    
+
                     const endX = startX - 50;
                     const endY = startY - 25;
                     const endZ = startZ + 25;
-                    
+
                     shootingStar.position.set(startX, startY, startZ);
                     shootingStar.lookAt(endX, endY, endZ); // Orient along trajectory
-                    
+
                     // Fire it
                     shootingStarMat.opacity = 1;
                     gsap.to(shootingStar.position, {
@@ -1402,7 +1708,7 @@
                         duration: 0.7,
                         ease: "power1.inOut"
                     });
-                    
+
                     shootingStarTimer = 3 + Math.random() * 6; // Fire every 3 to 9 seconds
                 }
             }
